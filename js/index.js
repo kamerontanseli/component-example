@@ -1,52 +1,60 @@
-/** @jsx h */
-import { h } from "./core";
-import { app } from "./core/store";
+const el = (element, attrs, children) => {
+  const dom = document.createElement(element);
+  Object.assign(dom, attrs);
+  children.forEach(child => {
+    dom.appendChild(
+      typeof child === "string" ? document.createTextNode(child) : child
+    );
+  });
+  return dom;
+};
 
-const main = app(
+const store = (state, reducers, component) => {
+  let _state = state;
+  const dispatch = {};
+  const parent = el("div", {}, []);
+
+  const render = () => {
+    if (parent.firstChild) {
+      parent.removeChild(parent.firstChild);
+    }
+    parent.appendChild(component(Object.assign({}, _state, dispatch)));
+  };
+
+  Object.keys(reducers).forEach(key => {
+    dispatch[key] = payload => {
+      _state = reducers[key](_state, payload);
+      render();
+    };
+  });
+
+  render();
+
+  return parent;
+};
+
+const Counter = ({ count, increment, decrement }) =>
+  el("div", {}, [
+    el("h2", {}, [`Count: ${count}`]),
+    el("button", { onclick: increment }, ["+"]),
+    el("button", { onclick: decrement }, ["-"])
+  ]);
+
+const app = store(
+  { count: 0 },
   {
-    todos: []
-  },
-  {
-    ADD_TODO: (state, todo) => {
-      const todos = JSON.parse(JSON.stringify(state.todos));
-      todos.push({ complete: false, todo });
-      return { todos };
-    },
-    TOGGLE_TODO: (state, index) => {
-      const todos = JSON.parse(JSON.stringify(state.todos));
-      todos[index] = Object.assign({}, todos[index], {
-        complete: !todos[index].complete
+    increment(state, payload) {
+      return Object.assign({}, state, {
+        count: state.count + 1
       });
-      return { todos };
+    },
+    decrement(state, payload) {
+      return Object.assign({}, state, {
+        count: state.count - 1
+      });
     }
   },
-  ({ todos }, dispatch) => (
-    <div>
-      <input
-        type="text"
-        autofocus
-        onkeydown={e => {
-          if (e.keyCode === 13) {
-            dispatch("ADD_TODO", e.currentTarget.value);
-            e.currentTarget.value = "";
-            e.currentTarget.focus()
-          }
-        }}
-      />
-      <ul>
-        {todos.map((todo, index) => (
-          <li>
-            <input
-              onclick={() => dispatch("TOGGLE_TODO", index)}
-              type="checkbox"
-              checked={todo.complete}
-            />
-            {" "+todo.todo}
-          </li>
-        ))}
-      </ul>
-    </div>
-  )
+  Counter
 );
 
-document.body.appendChild(main);
+document.body.appendChild(app);
